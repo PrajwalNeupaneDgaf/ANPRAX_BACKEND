@@ -18,7 +18,7 @@ app.use(expressfileUpload({
 }))
 
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://www.localhost:5173', "https://anpranx.netlify.app", "https://github.com"],
+    origin: ['http://localhost:5173', 'http://www.localhost:5173', "https://anpranx.netlify.app/", "https://github.com"],
 }));
 
 app.use(express.json())

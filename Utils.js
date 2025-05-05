@@ -20,8 +20,7 @@ io.on("connection", (socket) => {
     if (id != 'undefined') {
 
         userSocketMap[id] = socket.id
-
-
+        console.log("Added")
     }
 
     socket.on("disconnect", () => {

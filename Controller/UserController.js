@@ -87,7 +87,7 @@ const register = async (req, res) => {
         })
 
         const Token = jwt.sign({ id: newUser._id }, process.env.JWT_PASSWORD, { expiresIn: "7d" })
-
+        await newUser.save()
         return res.status(200).json({
             User: newUser,
             Token: Token
