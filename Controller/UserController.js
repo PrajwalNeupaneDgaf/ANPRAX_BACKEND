@@ -341,7 +341,9 @@ const addEmail = async (req, res) => {
 
         const user = await User.findById(id)
 
-        if (user?.Email.toLowerCase() === Email.toLowerCase()) throw new Error("Can't Use The Same Email")
+      if(user?.Email){
+          if (user?.Email?.toLowerCase() === Email.toLowerCase()) throw new Error("Can't Use The Same Email")
+      }
 
         user.Email = Email
         user.IsVerified = false
