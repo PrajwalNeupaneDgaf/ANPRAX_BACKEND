@@ -1,5 +1,15 @@
 const mongoose = require('mongoose');
 
+const chatSchema = new mongoose.Schema({
+    User:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"User",
+    },
+    LastText:{
+        type:String,
+    }
+},{timestamps:true})
+
 const userSchema = new mongoose.Schema({
     Name: {
         type: String,
@@ -19,7 +29,7 @@ const userSchema = new mongoose.Schema({
     },
     Gender: {
         type: String,
-        enum: ["Male", "Female", "Other"],
+        enum: ["Male", "Female", "Others"],
         required: true,
     },
     Email: {
@@ -66,15 +76,14 @@ const userSchema = new mongoose.Schema({
     ],
     Profile:
     {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Profile',
+        type:String,
+       required:true,
+        default:"https://static.vecteezy.com/system/resources/previews/021/548/095/original/default-profile-picture-avatar-user-avatar-icon-person-icon-head-icon-profile-picture-icons-default-anonymous-user-male-and-female-businessman-photo-placeholder-social-network-avatar-portrait-free-vector.jpg"
     },
-    Chats: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User',
-        },
-    ],
+    ProfileId:{
+        type:String, 
+    },
+    Chats: [chatSchema],
     Saves: [
         {
             type: mongoose.Schema.Types.ObjectId,
@@ -85,7 +94,14 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['Active', 'Deactivated'],
         default:"Active"
-    }
+    },
+    Blocks: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+        },
+    ],
+
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

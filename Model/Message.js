@@ -11,10 +11,10 @@ const newMessage = new mongoose.Schema({
         required:true,
         ref:"User"
     },
-    DeletedBy:{
+    DeletedBy:[{
         type:mongoose.Schema.Types.ObjectId,
         ref:"User"
-    },
+    }],
     Message:{
         type:String,
         required:true
@@ -22,3 +22,5 @@ const newMessage = new mongoose.Schema({
 },{
     timestamps:true
 })
+
+module.exports = mongoose.model("Message",newMessage)

@@ -24,7 +24,11 @@ const postSchema =new  mongoose.Schema({
     Comments:[{
         type:mongoose.Schema.Types.ObjectId,
         ref:"Comment"
-    }]
+    }],
+    Saves:[{
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"User"
+    }],
 },{timestamps:true})
 
 module.exports = mongoose.model('Post',postSchema)

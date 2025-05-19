@@ -6,7 +6,6 @@ const nodeMailer = require('nodemailer')
 
 const validator = require('validator')
 const cloudinary = require("../Utils/Cloudinary")
-const Profile = require("../Model/Profile")
 
 const transporter = nodeMailer.createTransport({
     service: 'gmail',
@@ -109,6 +108,8 @@ const verify = async (req, res) => {
 
         if (user?.VerificationCode == Code) {
             user.IsVerified = true
+        } else {
+            throw new Error("Invalid Code")
         }
 
         await user.save()
@@ -142,7 +143,17 @@ const me = async (req, res) => {
         const id = req.user.id
 
         const user = await User.findById(id).select("-Password").populate({
-            path: "Profile"
+            path: "SentRequest",
+            select: "Name UserName _id Profile "
+        }).populate({
+            path: "ReceivedRequest",
+            select: "Name UserName _id Profile "
+        }).populate({
+            path: "Friends",
+            select: "Name UserName _id Profile "
+        }).populate({
+            path: "Blocks",
+            select: "Name UserName _id Profile "
         })
 
         return res.status(200).json({
@@ -161,9 +172,9 @@ const updatePassword = async (req, res) => {
     try {
         const id = req.user.id
 
-        const { NewPassord, Password } = req.body
+        const { NewPassword, Password } = req.body
 
-        if (NewPassord.length < 8) throw new Error("Password Should Be Atleast of 8 Character")
+        if (NewPassword.length < 8) throw new Error("Password Should Be Atleast of 8 Character")
 
         const user = await User.findById(id)
 
@@ -171,7 +182,7 @@ const updatePassword = async (req, res) => {
 
         if (!isMatched) throw new Error('Password Didnot Matched')
 
-        const hashed = await bcrypt.hash(NewPassord, 10)
+        const hashed = await bcrypt.hash(NewPassword, 10)
 
         user.Password = hashed
 
@@ -200,9 +211,18 @@ const SendVerificationCode = async (req, res) => {
         transporter.sendMail({
             from: process.env.GMAIL,
             to: user?.Email,
-            subject: 'Code To Verify',
+            subject: `Code To Verify to ${user?.Name}`,
             text: 'This is a Verification email sent to Verify',
-            html: `<b>Your Code is ${Code} </b>`
+            html: `<div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto;">
+      <h2>Verify Your Account</h2>
+      <p>Hello${user?.Name ? ` ${user.Name}` : ''},</p>
+      <p>Here is your verification code:</p>
+      <p style="font-size: 20px; font-weight: bold; color: #4CAF50;">${Code}</p>
+      <p>If you didn’t request this, please ignore this email.</p>
+      <hr />
+      <p style="font-size: 12px; color: #999;">This email was sent by Anprax</p>
+    </div>
+  `
         },
             async (error, info) => {
                 if (error) {
@@ -244,16 +264,19 @@ const forgotPassword = async (req, res) => {
 
         if (!user.IsVerified) throw new Error("Sorry Your Email Is Not Verified")
 
-        const code = jwt.sign({ id: user._id }, process.env.JWT_VERIFY, { expiresIn: '1h' })
+        const code = jwt.sign({ id: user._id }, process.env.JWT_VERIFY, { expiresIn: '10m' })
 
-        let Link = `https://anpranx.netlify.app/verify/${code}`
+        let Link = `https://anpranx.netlify.app/forgot-password/${code}`
 
         transporter.sendMail({
             from: process.env.GMAIL,
             to: user?.Email,
-            subject: 'Code To Verify',
-            text: 'This is a Link Please Kindly Click And Change Password',
-            html: `<a href=${Link}> Head To Anprax </a>`
+            subject: 'Verify Your Account - Anprax',
+            text: `Hi ${user?.Name || 'there'},\n\nClick the link below \n${Link}`,
+            html: `<p>Hi ${user?.Name || 'there'},</p>
+                    <p>You Have Requested to Change your password for anpranx.netlify.app if you want to </p>
+                    <a href="${Link}" style="padding: 10px 20px; background: #4CAF50; color: white; text-decoration: none;">Verify Email</a>
+                    <p>If you didn’t request this, you can ignore this email.</p>`
         },
             async (error, info) => {
                 if (error) {
@@ -278,10 +301,10 @@ const forgotPassword = async (req, res) => {
 
 const changePasswordByForgeting = async (req, res) => {
     try {
-        const { NewPassowrd, Code } = req.body
-        if (!NewPassowrd || !Code) throw new Error("Somehing is Incomplete")
+        const { NewPassword, Code } = req.body
+        if (!NewPassword || !Code) throw new Error("SomeThing is Incomplete" + NewPassword + " Or " + Code)
 
-        if (NewPassowrd.length < 8) throw new Error("Password Length Should be Atleast 8 Character")
+        if (NewPassword.length < 8) throw new Error("Password Length Should be Atleast 8 Character")
 
         const decoded = jwt.verify(Code, process.env.JWT_VERIFY)
 
@@ -289,7 +312,7 @@ const changePasswordByForgeting = async (req, res) => {
 
         if (!user) throw new Error("Please Check Your Link")
 
-        const hashed = await bcrypt.hash(NewPassowrd, 10)
+        const hashed = await bcrypt.hash(NewPassword, 10)
 
         user.Password = hashed
 
@@ -317,6 +340,8 @@ const addEmail = async (req, res) => {
         if (!validator.isEmail(Email)) throw new Error("This is Not Valid Email")
 
         const user = await User.findById(id)
+
+        if (user?.Email.toLowerCase() === Email.toLowerCase()) throw new Error("Can't Use The Same Email")
 
         user.Email = Email
         user.IsVerified = false
@@ -372,17 +397,11 @@ const addPhoto = async (req, res) => {
 
         const result = await cloudinary.uploader.upload(Image.tempFilePath, { folder: 'Profiles' })
 
-        const profile = new Profile({
-            Link: result.url,
-            ID: result.public_id,
-            User: user?._id
-        })
 
-        await profile.save()
+        user.Profile = result.url
+        user.ProfileId = result.public_id,
 
-        user.Profile = profile?._id
-
-        await user.save()
+            await user.save()
 
 
         return res.status(200).json({
@@ -397,21 +416,21 @@ const addPhoto = async (req, res) => {
     }
 }
 
-const removeProfile = async () => {
+const removeProfile = async (req, res) => {
     try {
         const id = req.user.id
 
         const user = await User.findById(id)
+        if (!user.ProfileId) throw new Error("Please Add Profile First")
 
-        const profile = await Profile.findOne({ User: id })
-
-        const result = await cloudinary.uploader.destroy(profile.public_id)
-
-        user.Profile = ''
-        await User.save()
+        const result = await cloudinary.uploader.destroy(user.ProfileId)
 
 
-        await profile.deleteOne()
+
+        user.Profile = 'https://static.vecteezy.com/system/resources/previews/021/548/095/original/default-profile-picture-avatar-user-avatar-icon-person-icon-head-icon-profile-picture-icons-default-anonymous-user-male-and-female-businessman-photo-placeholder-social-network-avatar-portrait-free-vector.jpg'
+        user.ProfileId = ""
+        await user.save()
+
 
         return res.status(200).json({
             message: "Profile Removed"
@@ -431,30 +450,47 @@ const getProfile = async (req, res) => {
 
         const mineId = req.user.id
 
-        const me = await User.findById(id)
+        const me = await User.findById(mineId)
 
         const user = await User.findById(id).select("-Password -Chats -Saves -SentRequest -ReceivedRequest -VerificationCode").populate({
             path: "Friends",
             select: "_id Name UserName Profile"
-        }).populate("Posts")
+        }).populate({
+            path: "Posts",
+            options: { sort: { createdAt: -1 } }, // Sort posts by newest
+            populate: [
+                { path: "Image" }, // Populate Image inside each post
+                { path: "User", select: "Name UserName Profile" } // Optional: select specific User fields
+            ]
+        })
+        const isBlocked = me.Blocks.some(itm => itm.toString() == id)
+        const isHeBlocked = user.Blocks.some(itm => itm.toString() == mineId)
 
-        let isfriends = false
-        let isRequested = false
-        let isReceivedRequest = false
+        if (isBlocked || isHeBlocked) {
+            throw new Error("You Are Blocked Or You May Have Blocked")
+        }
 
-        isfriends = user.Friends?.some(friend => friend._id.toString() === mineId);
+
+        let isfriends
+        let isRequested
+        let isReceivedRequest
+
+        isfriends = me.Friends?.some(itm => itm.toString() == id)
+
 
         // Check if I sent request to this user
-        isRequested = me.SentRequest?.some(requestId => requestId.toString() === user._id.toString());
+        isRequested = me.SentRequest?.some(itm => itm.toString() == id)
+
 
         // Check if I received request from this user
-        isReceivedRequest = me.ReceivedRequest?.some(requestId => requestId.toString() === user._id.toString());
-
+        isReceivedRequest = me.ReceivedRequest?.some(itm => itm.toString() == id)
 
         return res.status(200).json({
             Data: user,
             isMineId: id === mineId,
-            isfriends, isRequested, isReceivedRequest
+            isfriends,
+            isRequested,
+            isReceivedRequest,
         })
     } catch (error) {
         return res.status(500).json({
