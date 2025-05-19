@@ -214,7 +214,7 @@ const GetPost = async (req, res) => {
                 path: 'User',
                 select: "Name Profile _id UserName"
             }
-        })
+        }).populate('Image')
 
         if (!myPost) throw new Error("Post Unavailable")
 
